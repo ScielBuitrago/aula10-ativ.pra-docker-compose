@@ -11,7 +11,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/minha-api-devops
+  # Deixamos a base do nome genérica aqui para tratar a minúscula logo abaixo
 
 jobs:
   build-and-publish:
@@ -21,6 +21,13 @@ jobs:
     steps:
       - name: Checkout do Código
         uses: actions/checkout@v4
+
+      - name: Normalizar nome do repositório para minúsculas
+        id: vars
+        run: |
+          # Força todo o caminho do repositório para letras minúsculas
+          LOWER_REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=${LOWER_REPO}" >> $GITHUB_OUTPUT
 
       - name: Autenticação no GitHub Container Registry (GHCR)
         uses: docker/login-action@v3
@@ -33,7 +40,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.vars.outputs.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
             type=sha,prefix=
@@ -58,8 +65,11 @@ jobs:
 
       - name: Gerar Arquivo .env Dinâmico para o Compose
         run: |
+          # Normaliza o nome do repositório para minúsculas também no deploy
+          LOWER_REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           IMAGE_TAG=${GITHUB_SHA::7}
-          echo "REGISTRY_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" > .env
+          
+          echo "REGISTRY_IMAGE=${{ env.REGISTRY }}/${LOWER_REPO}" > .env
           echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
           echo "=== Configuração do arquivo .env ==="
           cat .env
